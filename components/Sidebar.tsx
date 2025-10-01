@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 
 // SVG Icons as components
 const OverviewIcon = ({ className }: { className?: string }) => (
@@ -64,6 +65,11 @@ const menuItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <aside className="w-64 bg-white border-r border-gray-200 min-h-screen fixed left-0 top-0 z-10">
@@ -93,7 +99,7 @@ export default function Sidebar() {
       </nav>
       <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 bg-white">
         <p className="text-xs text-gray-500 text-center">
-          Last updated: {new Date().toLocaleDateString("en-US")}
+          {mounted ? `Last updated: ${new Date().toLocaleDateString("en-US")}` : "Loading..."}
         </p>
       </div>
     </aside>
