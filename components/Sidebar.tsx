@@ -35,6 +35,12 @@ const ChartIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const RocketIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+  </svg>
+);
+
 const menuItems = [
   {
     title: "Overview",
@@ -60,6 +66,11 @@ const menuItems = [
     title: "Performance",
     href: "/performance",
     Icon: ChartIcon,
+  },
+  {
+    title: "Go Live",
+    href: "/golive",
+    Icon: RocketIcon,
   },
 ];
 

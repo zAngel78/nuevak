@@ -21,12 +21,22 @@ export default function ChurnAnalysis() {
 
   const totalChurnedARR = churnedAccounts.reduce((sum, acc) => sum + acc.arr, 0);
 
-  // Churn Reasons
+  // Churn Reasons with latest Churn Notes
   const churnReasons = churnedAccounts.map((acc) => ({
     name: acc.name,
     arr: acc.arr,
     product: acc.product,
-    reason: acc.churnReason,
+    latestChurnNote: acc.churnNotes.length > 0 ? acc.churnNotes[acc.churnNotes.length - 1] : "No notes",
+    guru: acc.guru,
+  }));
+
+  // Stuck accounts with last 3 Risk Notes
+  const stuckAccounts = accounts.filter((acc) => acc.journeyStatus === "Stuck");
+  const stuckReasons = stuckAccounts.map((acc) => ({
+    name: acc.name,
+    arr: acc.arr,
+    product: acc.product,
+    last3RiskNotes: acc.riskNotes.slice(-3).join("; "),
     guru: acc.guru,
   }));
 
@@ -68,11 +78,11 @@ export default function ChurnAnalysis() {
     <div className="p-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Churn Analysis</h1>
-        <p className="text-gray-500 mt-1">Churned accounts and reasons</p>
+        <p className="text-gray-500 mt-1">Churned accounts and stuck journeys</p>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <KpiCard
           title="Churned Accounts"
           value={churnedAccounts.length}
@@ -90,11 +100,6 @@ export default function ChurnAnalysis() {
           value={`${churnRate}%`}
           subtitle="Of total accounts"
           trend="down"
-        />
-        <KpiCard
-          title="Avg Churned ARR"
-          value={`$${(totalChurnedARR / churnedAccounts.length).toFixed(0)}`}
-          subtitle="Per churned account"
         />
       </div>
 
@@ -123,7 +128,7 @@ export default function ChurnAnalysis() {
           </ResponsiveContainer>
         </ChartSection>
 
-        <ChartSection title="Churn by Guru" subtitle="Number of churned accounts">
+        <ChartSection title="Churn by Onboarding Guru" subtitle="Number of churned accounts">
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
@@ -147,23 +152,45 @@ export default function ChurnAnalysis() {
         </ChartSection>
       </div>
 
-      {/* Churn Details Table */}
-      <DataTable
-        title={`Churned Accounts (2025) - Total ARR: $${totalChurnedARR.toLocaleString()}`}
-        columns={[
-          { header: "Account", accessor: "name" },
-          {
-            header: "ARR",
-            accessor: "arr",
-            cell: (value) => `$${value.toLocaleString()}`,
-          },
-          { header: "Product", accessor: "product" },
-          { header: "Guru", accessor: "guru" },
-          { header: "Churn Reason", accessor: "reason" },
-        ]}
-        data={churnReasons}
-        maxHeight="600px"
-      />
+      {/* Churn Reasons Table */}
+      <div className="mb-8">
+        <DataTable
+          title={`Churn Reasons - Latest Churn Notes (Total ARR: $${totalChurnedARR.toLocaleString()})`}
+          columns={[
+            { header: "Account", accessor: "name" },
+            {
+              header: "ARR",
+              accessor: "arr",
+              cell: (value) => `$${value.toLocaleString()}`,
+            },
+            { header: "Product", accessor: "product" },
+            { header: "Onboarding Guru", accessor: "guru" },
+            { header: "Latest Churn Note", accessor: "latestChurnNote" },
+          ]}
+          data={churnReasons}
+          maxHeight="600px"
+        />
+      </div>
+
+      {/* Stuck Reasons Table */}
+      <div className="mb-8">
+        <DataTable
+          title="Reasons for Stuck - Last 3 Risk Notes"
+          columns={[
+            { header: "Account", accessor: "name" },
+            {
+              header: "ARR",
+              accessor: "arr",
+              cell: (value) => `$${value.toLocaleString()}`,
+            },
+            { header: "Product", accessor: "product" },
+            { header: "Onboarding Guru", accessor: "guru" },
+            { header: "Last 3 Risk Notes", accessor: "last3RiskNotes" },
+          ]}
+          data={stuckReasons}
+          maxHeight="600px"
+        />
+      </div>
     </div>
   );
 }
