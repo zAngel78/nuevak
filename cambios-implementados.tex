@@ -1,782 +1,173 @@
 \documentclass[12pt,a4paper]{article}
 \usepackage[utf8]{inputenc}
-\usepackage[spanish]{babel}
 \usepackage{geometry}
-\usepackage{hyperref}
-\usepackage{graphicx}
-\usepackage{listings}
-\usepackage{xcolor}
 \usepackage{enumitem}
-\usepackage{longtable}
 
 \geometry{margin=1in}
 
-\definecolor{codegreen}{rgb}{0,0.6,0}
-\definecolor{codegray}{rgb}{0.5,0.5,0.5}
-\definecolor{codepurple}{rgb}{0.58,0,0.82}
-\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
-
-\lstdefinestyle{mystyle}{
-    backgroundcolor=\color{backcolour},
-    commentstyle=\color{codegreen},
-    keywordstyle=\color{magenta},
-    numberstyle=\tiny\color{codegray},
-    stringstyle=\color{codepurple},
-    basicstyle=\ttfamily\footnotesize,
-    breakatwhitespace=false,
-    breaklines=true,
-    captionpos=b,
-    keepspaces=true,
-    numbers=left,
-    numbersep=5pt,
-    showspaces=false,
-    showstringspaces=false,
-    showtabs=false,
-    tabsize=2
-}
-
-\lstset{style=mystyle}
-
-\title{\textbf{CCSO Dashboard - ChurnZero Simulation} \\ \large Reporte de Cambios Implementados}
-\author{Equipo de Desarrollo}
+\title{\textbf{CCSO Dashboard - Changes Implemented}}
+\author{Development Team}
 \date{\today}
 
 \begin{document}
 
 \maketitle
-\newpage
 
-\tableofcontents
-\newpage
+\section*{Summary}
 
-\section{Resumen Ejecutivo}
+All dashboard reports now focus exclusively on \textbf{Onboarding accounts only}.
 
-Este documento detalla todos los cambios implementados en el CCSO Managers Dashboard según los requerimientos del cliente. Las modificaciones principales se centran en:
+\section*{Data Model Changes}
 
-\begin{itemize}
-    \item Cambio de enfoque: de "todas las cuentas" a "solo cuentas en Onboarding"
-    \item Renombramiento de "Customer Success Guru" a "Onboarding Guru"
-    \item Nueva definición de "At Risk" basada en Journey Status
-    \item Eliminación de producto "Enterprise QMS"
-    \item Nueva página "Go Live" con métricas de progreso de implementación
-    \item Nuevos campos y métricas en el modelo de datos
+\textbf{New fields added to Account interface:}
+\begin{itemize}[leftmargin=*]
+    \item isOnboarding - filters accounts in onboarding process
+    \item journeyStatus - tracks if account is "On Track", "Stuck", or "Complete"
+    \item implementationType - Standard, Complex, Enterprise, or Quick Start
+    \item churnNotes - array of churn notes (replaces single reason)
+    \item milestoneDate - project milestone date
+    \item phase - Kickoff, Planning, Implementation, Testing, or Go Live
+    \item tasksCompleted \& totalTasks - task tracking
+    \item tasksCompletedHours \& totalTasksHours - weighted progress calculation
+    \item goLiveDate - scheduled go live date
+    \item previousWeekProgress - for variance calculation
+    \item completedDate - onboarding completion date
 \end{itemize}
 
-\section{Cambios en el Modelo de Datos}
-
-\subsection{Interfaz Account - Nuevos Campos}
-
-Se actualizó la interfaz \texttt{Account} en \texttt{lib/mockData.ts} con los siguientes campos:
-
-\begin{longtable}{|p{4cm}|p{3cm}|p{7cm}|}
-\hline
-\textbf{Campo} & \textbf{Tipo} & \textbf{Descripción} \\
-\hline
-\endhead
-isOnboarding & boolean & Indica si la cuenta está en proceso de onboarding \\
-\hline
-journeyStatus & string & Estado del journey: "On Track" | "Stuck" | "Complete" \\
-\hline
-implementationType & string & Tipo de implementación: "Standard" | "Complex" | "Enterprise" | "Quick Start" \\
-\hline
-churnNotes & string[] & Array de notas sobre el churn (reemplaza churnReason simple) \\
-\hline
-milestoneDate & string & Fecha del milestone del proyecto \\
-\hline
-phase & string & Fase del proyecto: "Kickoff" | "Planning" | "Implementation" | "Testing" | "Go Live" \\
-\hline
-tasksCompleted & number & Número de tareas completadas \\
-\hline
-totalTasks & number & Total de tareas del proyecto \\
-\hline
-tasksCompletedHours & number & Horas completadas (para cálculo weighted) \\
-\hline
-totalTasksHours & number & Total de horas estimadas \\
-\hline
-goLiveDate & string & Fecha programada de Go Live \\
-\hline
-previousWeekProgress & number & Progreso de la semana anterior (para calcular varianza) \\
-\hline
-completedDate & string & Fecha de completación del onboarding \\
-\hline
-\end{longtable}
-
-\subsection{Cambios en Productos}
-
-\textbf{ANTES:}
-\begin{lstlisting}[language=JavaScript]
-product: "Fresh QMS" | "Migrated QMS" | "Enterprise QMS"
-\end{lstlisting}
-
-\textbf{DESPUÉS:}
-\begin{lstlisting}[language=JavaScript]
-product: "Fresh QMS" | "Migrated QMS"
-\end{lstlisting}
-
-\textbf{Razón:} Se eliminó "Enterprise QMS" según requerimiento del cliente.
-
-\subsection{Mock Data Actualizado}
-
-Se crearon 12 cuentas de ejemplo con los nuevos campos:
-\begin{itemize}
-    \item 7 cuentas en Onboarding (\texttt{isOnboarding: true})
-    \item 5 cuentas completadas o churned (\texttt{isOnboarding: false})
-    \item 2 cuentas con Journey Status "Stuck"
-    \item 2 cuentas completadas
-    \item 3 cuentas churned con churnNotes detalladas
+\textbf{Products changed:}
+\begin{itemize}[leftmargin=*]
+    \item Removed "Enterprise QMS"
+    \item Only "Fresh QMS" and "Migrated QMS" remain
 \end{itemize}
 
-\section{Página Overview (/) - Cambios Detallados}
+\section*{Overview Page Changes}
 
-\subsection{Principio Fundamental}
-\textbf{CAMBIO CRÍTICO:} Todos los reportes ahora se basan SOLO en cuentas Onboarding (\texttt{isOnboarding === true}), no en todas las cuentas.
-
-\subsection{Filtros y Métricas}
-
-\subsubsection{Filtro de Tiempo}
-Se agregó un dropdown con opciones:
-\begin{itemize}
-    \item This Week
-    \item This Month
-    \item This Quarter
+\begin{itemize}[leftmargin=*]
+    \item All metrics filtered to onboarding accounts only
+    \item Renamed "Customer Success Guru" to "Onboarding Guru" everywhere
+    \item At Risk now based on journeyStatus === "Stuck" (not status field)
+    \item Added time filter dropdown: This Week, This Month, This Quarter
+    \item Added "Complete Onboarding" list with time filtering
+    \item Added "Guru by Products" count table
+    \item Added Implementation Type charts (count and ARR)
 \end{itemize}
 
-Este filtro aplica a la lista de "Complete Onboarding Accounts".
+\section*{Time to Value Page Changes}
 
-\subsubsection{KPI Cards - Cambios}
-
-\begin{longtable}{|p{5cm}|p{4cm}|p{5cm}|}
-\hline
-\textbf{KPI} & \textbf{ANTES} & \textbf{DESPUÉS} \\
-\hline
-\endhead
-Total ARR & De todas las cuentas & Solo de cuentas Onboarding \\
-\hline
-Active Accounts & status === "Open" & Cuentas Onboarding con status === "Open" \\
-\hline
-New Customers & Últimos 7 días & Complete Onboarding (filtrado por week/month/quarter) \\
-\hline
-At Risk & status === "At Risk" OR riskNotes.length > 0 & journeyStatus === "Stuck" \\
-\hline
-\end{longtable}
-
-\subsection{Nuevos Componentes Agregados}
-
-\subsubsection{1. Complete Onboarding List}
-\textbf{Descripción:} Tabla con cuentas que completaron onboarding filtradas por periodo de tiempo.
-
-\textbf{Columnas:}
-\begin{itemize}
-    \item Account
-    \item Product
-    \item ARR
-    \item Onboarding Guru (cambio de nombre)
-    \item Completed Date
+\begin{itemize}[leftmargin=*]
+    \item Removed "Overall Average TTV" KPI
+    \item Removed "Enterprise QMS TTV" KPI
+    \item All calculations filtered to onboarding accounts only
+    \item Updated Fresh QMS and Migrated QMS TTV (onboarding only)
 \end{itemize}
 
-\subsubsection{2. Guru by Products}
-\textbf{Descripción:} Tabla que muestra conteo de cuentas por Guru y Producto.
+\section*{Customers Page Changes}
 
-\textbf{Columnas:}
-\begin{itemize}
-    \item Guru
-    \item Product
-    \item Count (número de cuentas)
+\begin{itemize}[leftmargin=*]
+    \item Page renamed to "Onboarding Customers"
+    \item Description changed to "Onboarding Guru view"
+    \item All tables filtered to onboarding accounts
+    \item "At Risk" section renamed to "Stuck Accounts"
+    \item All references to "Guru" changed to "Onboarding Guru"
 \end{itemize}
 
-\textbf{Implementación:}
-\begin{lstlisting}[language=JavaScript]
-const guruByProducts = onboardingAccounts.reduce((acc, account) => {
-  const key = `${account.guru}-${account.product}`;
-  if (!acc[key]) {
-    acc[key] = { guru: account.guru, product: account.product, count: 0 };
-  }
-  acc[key].count += 1;
-  return acc;
-}, {} as Record<string, { guru: string; product: string; count: number }>);
-\end{lstlisting}
+\section*{Churn Analysis Page Changes}
 
-\subsubsection{3. Implementation Type - Count}
-\textbf{Descripción:} Gráfico de barras mostrando cantidad de cuentas por tipo de implementación.
-
-\textbf{Tipos:}
-\begin{itemize}
-    \item Standard
-    \item Complex
-    \item Enterprise
-    \item Quick Start
+\begin{itemize}[leftmargin=*]
+    \item Removed "Average Churned ARR" KPI
+    \item Added "Churn Reasons - Latest Churn Notes" table
+    \item Added "Reasons for Stuck - Last 3 Risk Notes" table
+    \item Stuck accounts filtered by journeyStatus === "Stuck"
+    \item Shows latest churn note from churnNotes array
+    \item Shows last 3 risk notes concatenated
 \end{itemize}
 
-\subsubsection{4. Implementation Type - Total ARR}
-\textbf{Descripción:} Gráfico circular (pie chart) mostrando distribución de ARR por tipo de implementación.
+\section*{New Go Live Page}
 
-\subsection{Cambio de Nomenclatura}
+Completely new page created with:
 
-En TODA la página Overview:
-\begin{itemize}
-    \item "Customer Success Guru" → "Onboarding Guru"
-    \item Título de gráfico: "ARR by Guru" → "ARR by Onboarding Guru"
+\textbf{KPIs:}
+\begin{itemize}[leftmargin=*]
+    \item Average Implementation Progress (weighted by hours)
+    \item Week-to-Week Variance
+    \item Customers by Milestone (filtered by date and phase)
+    \item Upcoming Go Lives count
 \end{itemize}
 
-\section{Página Time to Value (/ttv) - Cambios Detallados}
-
-\subsection{KPIs Removidos}
-\begin{itemize}
-    \item \textbf{REMOVIDO:} Overall Average TTV
-    \item \textbf{REMOVIDO:} Enterprise QMS TTV
+\textbf{Filters:}
+\begin{itemize}[leftmargin=*]
+    \item Phase filter: All, Kickoff, Planning, Implementation, Testing, Go Live
+    \item Time filter: This Week, This Month, This Quarter
 \end{itemize}
 
-\subsection{KPIs Mantenidos}
-\begin{itemize}
-    \item Fresh QMS TTV (solo cuentas Onboarding)
-    \item Migrated QMS TTV (solo cuentas Onboarding)
-    \item Total Onboarding Accounts (nuevo KPI agregado)
+\textbf{Charts:}
+\begin{itemize}[leftmargin=*]
+    \item Implementation Progress by Account (top 10)
+    \item Week-to-Week Variance (top 10, color coded green/red)
+    \item Customers by Journey Phase
 \end{itemize}
 
-\subsection{Filtro de Cuentas}
-\textbf{ANTES:} Todas las cuentas
-
-\textbf{DESPUÉS:} Solo cuentas con \texttt{isOnboarding === true}
-
-\begin{lstlisting}[language=JavaScript]
-const onboardingAccounts = accounts.filter((acc) => acc.isOnboarding);
-const freshAccounts = onboardingAccounts.filter((acc) => acc.product === "Fresh QMS");
-const migratedAccounts = onboardingAccounts.filter((acc) => acc.product === "Migrated QMS");
-\end{lstlisting}
-
-\subsection{Tabla de Detalles}
-Título actualizado: "TTV Details by Account (Onboarding)"
-
-Columnas actualizadas con "Onboarding Guru" en lugar de "Guru".
-
-\section{Página Customers (/customers) - Cambios Detallados}
-
-\subsection{Cambio de Enfoque}
-\textbf{ANTES:} Dashboard para CCSO Managers (gestión general de clientes)
-
-\textbf{DESPUÉS:} Dashboard para Onboarding Guru (vista específica de onboarding)
-
-\subsection{Título y Descripción}
-\begin{itemize}
-    \item Título: "Customers" → "Onboarding Customers"
-    \item Descripción: "Customer accounts and onboarding status" → "Onboarding accounts dashboard (Onboarding Guru view)"
+\textbf{Tables:}
+\begin{itemize}[leftmargin=*]
+    \item Customers by Milestone Date \& Phase (with filters)
+    \item Upcoming Go Lives (sorted by date)
+    \item Implementation Progress Details (with variance color coding)
 \end{itemize}
 
-\subsection{KPIs Actualizados}
-
-\begin{longtable}{|p{5cm}|p{4cm}|p{5cm}|}
-\hline
-\textbf{KPI} & \textbf{ANTES} & \textbf{DESPUÉS} \\
-\hline
-\endhead
-Active Customers & Todas las cuentas no-churned & Total Onboarding \\
-\hline
-New Customers & Últimos 7 días (todas) & New Onboarding (últimos 7 días, solo onboarding) \\
-\hline
-Active Onboarding & status === "Open" & Onboarding con status === "Open" \\
-\hline
-At Risk & status === "At Risk" OR riskNotes > 0 & Stuck (journeyStatus === "Stuck") \\
-\hline
-\end{longtable}
-
-\subsection{Tablas Actualizadas}
-
-\subsubsection{1. New Onboarding Customers}
-\begin{itemize}
-    \item Filtro: \texttt{isOnboarding === true} AND createdAt últimos 7 días
-    \item Columna "Guru" → "Onboarding Guru"
+\textbf{Progress Calculation:}
+\begin{itemize}[leftmargin=*]
+    \item Weighted by hours, not just task count
+    \item Formula: tasksCompletedHours / totalTasksHours × 100
+    \item Variance = current progress - previous week progress
 \end{itemize}
 
-\subsubsection{2. Active Onboarding}
-\begin{itemize}
-    \item Filtro: \texttt{isOnboarding === true} AND \texttt{status === "Open"}
-    \item Columna "Guru" → "Onboarding Guru"
+\section*{Sidebar Updates}
+
+\begin{itemize}[leftmargin=*]
+    \item Added "Go Live" menu item with rocket icon
+    \item Menu order: Overview, Time to Value, Customers, Churn Analysis, Performance, Go Live
 \end{itemize}
 
-\subsubsection{3. Stuck Accounts (At Risk)}
-\textbf{ANTES:} "At Risk Accounts" con filtro \texttt{status === "At Risk" OR riskNotes.length > 0}
+\section*{Global Changes}
 
-\textbf{DESPUÉS:} "Stuck Accounts (At Risk)" con filtro \texttt{journeyStatus === "Stuck"}
-
-\section{Página Churn Analysis (/churn) - Cambios Detallados}
-
-\subsection{KPIs Removidos}
-\begin{itemize}
-    \item \textbf{REMOVIDO:} Avg Churned ARR (promedio de ARR por cuenta churned)
+\textbf{Terminology:}
+\begin{itemize}[leftmargin=*]
+    \item "Customer Success Guru" → "Onboarding Guru" (all pages)
+    \item "At Risk" → "Stuck" (when referring to journey status)
 \end{itemize}
 
-\subsection{KPIs Mantenidos}
-\begin{itemize}
-    \item Churned Accounts (total)
-    \item Total Churned ARR
-    \item Churn Rate
+\textbf{Filtering:}
+\begin{itemize}[leftmargin=*]
+    \item All metrics in Overview, TTV, Customers, and Go Live pages filter by isOnboarding === true
+    \item Churn page shows only churned accounts
+    \item Performance page unchanged (shows all accounts)
 \end{itemize}
 
-\subsection{Nueva Tabla: Churn Reasons - Latest Churn Notes}
+\section*{Files Modified}
 
-\textbf{Descripción:} Lista de cuentas churned mostrando la ÚLTIMA nota de churn (en lugar de solo la razón genérica).
-
-\textbf{Columnas:}
-\begin{itemize}
-    \item Account
-    \item ARR
-    \item Product
-    \item Onboarding Guru
-    \item Latest Churn Note (último elemento del array churnNotes)
+\begin{itemize}[leftmargin=*]
+    \item lib/mockData.ts - updated interface, 12 sample accounts
+    \item app/page.tsx - overview page changes
+    \item app/ttv/page.tsx - time to value changes
+    \item app/customers/page.tsx - customers page changes
+    \item app/churn/page.tsx - churn analysis changes
+    \item app/golive/page.tsx - NEW PAGE created
+    \item components/Sidebar.tsx - added Go Live menu item
 \end{itemize}
 
-\textbf{Implementación:}
-\begin{lstlisting}[language=JavaScript]
-const churnReasons = churnedAccounts.map((acc) => ({
-  name: acc.name,
-  arr: acc.arr,
-  product: acc.product,
-  latestChurnNote: acc.churnNotes.length > 0
-    ? acc.churnNotes[acc.churnNotes.length - 1]
-    : "No notes",
-  guru: acc.guru,
-}));
-\end{lstlisting}
-
-\subsection{Nueva Tabla: Reasons for Stuck - Last 3 Risk Notes}
-
-\textbf{Descripción:} Lista de cuentas con Journey Status "Stuck" mostrando las últimas 3 notas de riesgo.
-
-\textbf{Filtro:} \texttt{journeyStatus === "Stuck"}
-
-\textbf{Columnas:}
-\begin{itemize}
-    \item Account
-    \item ARR
-    \item Product
-    \item Onboarding Guru
-    \item Last 3 Risk Notes (concatenadas con "; ")
-\end{itemize}
-
-\textbf{Implementación:}
-\begin{lstlisting}[language=JavaScript]
-const stuckAccounts = accounts.filter((acc) => acc.journeyStatus === "Stuck");
-const stuckReasons = stuckAccounts.map((acc) => ({
-  name: acc.name,
-  arr: acc.arr,
-  product: acc.product,
-  last3RiskNotes: acc.riskNotes.slice(-3).join("; "),
-  guru: acc.guru,
-}));
-\end{lstlisting}
-
-\subsection{Gráficos Actualizados}
-\begin{itemize}
-    \item Título "Churn by Guru" → "Churn by Onboarding Guru"
-\end{itemize}
-
-\section{Nueva Página: Go Live (/golive)}
-
-\subsection{Descripción General}
-Página completamente nueva para rastrear el progreso de implementación y fechas de Go Live.
-
-\subsection{Métricas Principales}
-
-\subsubsection{1. Implementation Progress Completion}
-\textbf{Descripción:} Porcentaje de progreso weighted by hours (ponderado por horas).
-
-\textbf{Fórmula:}
-\[
-\text{Progress} = \frac{\text{tasksCompletedHours}}{\text{totalTasksHours}} \times 100
-\]
-
-\textbf{Implementación:}
-\begin{lstlisting}[language=JavaScript]
-const currentProgress = (acc.tasksCompletedHours / acc.totalTasksHours) * 100;
-\end{lstlisting}
-
-\subsubsection{2. Week-to-Week Variance}
-\textbf{Descripción:} Cambio en el progreso de la semana actual vs la semana anterior.
-
-\textbf{Fórmula:}
-\[
-\text{Variance} = \text{currentProgress} - \text{previousWeekProgress}
-\]
-
-\textbf{Implementación:}
-\begin{lstlisting}[language=JavaScript]
-const variance = currentProgress - (acc.previousWeekProgress || 0);
-\end{lstlisting}
-
-\subsection{KPI Cards}
-
-\begin{enumerate}
-    \item \textbf{Avg Implementation Progress:} Promedio de progreso ponderado por horas
-    \item \textbf{Week-to-Week Variance:} Promedio de varianza (con + o - indicando dirección)
-    \item \textbf{Customers by Milestone:} Total de cuentas filtradas por milestone date y phase
-    \item \textbf{Upcoming Go Lives:} Total de Go Lives programados
-\end{enumerate}
-
-\subsection{Filtros}
-
-\subsubsection{Filtro de Fase}
-Dropdown con opciones:
-\begin{itemize}
-    \item All
-    \item Kickoff
-    \item Planning
-    \item Implementation
-    \item Testing
-    \item Go Live
-\end{itemize}
-
-\subsubsection{Filtro de Tiempo}
-Dropdown con opciones:
-\begin{itemize}
-    \item This Week
-    \item This Month
-    \item This Quarter
-\end{itemize}
-
-Este filtro aplica al campo \texttt{milestoneDate}.
-
-\subsection{Gráficos}
-
-\subsubsection{1. Implementation Progress by Account}
-\textbf{Tipo:} Gráfico de barras
-
-\textbf{Datos:} Top 10 cuentas con su porcentaje de progreso actual (weighted by hours)
-
-\textbf{Eje Y:} 0-100\%
-
-\subsubsection{2. Week-to-Week Variance}
-\textbf{Tipo:} Gráfico de barras
-
-\textbf{Datos:} Top 10 cuentas con su varianza de progreso
-
-\textbf{Valores:} Pueden ser positivos (mejora) o negativos (retraso)
-
-\subsubsection{3. Customers by Journey Phase}
-\textbf{Tipo:} Gráfico de barras
-
-\textbf{Datos:} Conteo de cuentas por fase del journey
-
-\subsection{Tablas}
-
-\subsubsection{1. Customers by Milestone Date \& Phase}
-\textbf{Descripción:} Cuentas filtradas por milestone date (según timeFilter) y phase (según phaseFilter)
-
-\textbf{Columnas:}
-\begin{itemize}
-    \item Account
-    \item Product
-    \item ARR
-    \item Phase
-    \item Milestone Date
-    \item Onboarding Guru
-\end{itemize}
-
-\subsubsection{2. Upcoming Go Lives}
-\textbf{Descripción:} Lista de cuentas con Go Live programado, ordenadas por fecha
-
-\textbf{Columnas:}
-\begin{itemize}
-    \item Account
-    \item Go Live Date
-    \item Phase
-    \item Progress \% (calculado)
-    \item ARR
-    \item Onboarding Guru
-\end{itemize}
-
-\textbf{Ordenamiento:} Por \texttt{goLiveDate} ascendente
-
-\subsubsection{3. Implementation Progress Details}
-\textbf{Descripción:} Detalles completos de progreso para todas las cuentas onboarding
-
-\textbf{Columnas:}
-\begin{itemize}
-    \item Account
-    \item Current Progress \% (weighted)
-    \item Previous Week \%
-    \item Variance (con código de color: verde si positivo, rojo si negativo)
-    \item Phase
-    \item Onboarding Guru
-\end{itemize}
-
-\textbf{Formato de Variance:}
-\begin{lstlisting}[language=JavaScript]
-cell: (value) => {
-  const num = parseFloat(value);
-  const color = num > 0 ? "text-green-600"
-    : num < 0 ? "text-red-600"
-    : "text-gray-600";
-  return <span className={color}>
-    {num > 0 ? "+" : ""}{value.toFixed(1)}%
-  </span>;
-}
-\end{lstlisting}
-
-\section{Actualización del Sidebar}
-
-\subsection{Nuevo Item de Menú}
-
-Se agregó el item "Go Live" al menú de navegación:
-
-\textbf{Propiedades:}
-\begin{itemize}
-    \item Título: "Go Live"
-    \item Ruta: "/golive"
-    \item Icono: RocketIcon (SVG de rayo/lightning)
-\end{itemize}
-
-\textbf{Ícono SVG:}
-\begin{lstlisting}[language=JavaScript]
-const RocketIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-      d="M13 10V3L4 14h7v7l9-11h-7z" />
-  </svg>
-);
-\end{lstlisting}
-
-\subsection{Orden del Menú}
-\begin{enumerate}
-    \item Overview
-    \item Time to Value
-    \item Customers
-    \item Churn Analysis
-    \item Performance (sin cambios)
-    \item Go Live (nuevo)
-\end{enumerate}
-
-\section{Cambios Globales de Nomenclatura}
-
-\subsection{Reemplazos en Todo el Dashboard}
-
-\begin{longtable}{|p{6cm}|p{6cm}|}
-\hline
-\textbf{ANTES} & \textbf{DESPUÉS} \\
-\hline
-\endhead
-Customer Success Guru & Onboarding Guru \\
-\hline
-CS Guru & Onboarding Guru \\
-\hline
-Guru (en contexto de onboarding) & Onboarding Guru \\
-\hline
-At Risk (basado en status) & Stuck (basado en journeyStatus) \\
-\hline
-\end{longtable}
-
-\section{Resumen de Archivos Modificados}
-
-\subsection{Archivos Creados}
-\begin{itemize}
-    \item \texttt{app/golive/page.tsx} - Nueva página Go Live
-\end{itemize}
-
-\subsection{Archivos Modificados}
-
-\begin{longtable}{|p{5cm}|p{9cm}|}
-\hline
-\textbf{Archivo} & \textbf{Cambios} \\
-\hline
-\endhead
-lib/mockData.ts & Interfaz Account actualizada con 12 nuevos campos, productos reducidos a 2, 12 cuentas de ejemplo actualizadas \\
-\hline
-app/page.tsx & Filtro onboarding, nuevos KPIs, nueva tabla Complete Onboarding, Guru by Products, Implementation Type charts \\
-\hline
-app/ttv/page.tsx & Removido Overall TTV, removido Enterprise QMS, filtro onboarding \\
-\hline
-app/customers/page.tsx & Enfoque cambiado a Onboarding Guru, filtro onboarding, At Risk → Stuck \\
-\hline
-app/churn/page.tsx & Removido Avg Churned ARR, agregadas tablas Churn Reasons y Stuck Reasons \\
-\hline
-components/Sidebar.tsx & Agregado item Go Live con RocketIcon \\
-\hline
-\end{longtable}
-
-\section{Impacto en Métricas de Negocio}
-
-\subsection{Métricas Ahora Enfocadas en Onboarding}
-
-\textbf{ANTES:} Las métricas mezclaban cuentas en diferentes estados (onboarding, post-onboarding, churned)
-
-\textbf{DESPUÉS:} Métricas claramente segmentadas:
-\begin{itemize}
-    \item Overview, TTV, Customers: Solo cuentas \texttt{isOnboarding === true}
-    \item Churn: Solo cuentas \texttt{churned === true}
-    \item Performance: Todas las cuentas (sin cambios)
-    \item Go Live: Solo cuentas \texttt{isOnboarding === true}
-\end{itemize}
-
-\subsection{Nueva Definición de At Risk}
-
-\textbf{Impacto:} Definición más precisa y accionable
-
-\textbf{ANTES:}
-\begin{lstlisting}[language=JavaScript]
-status === "At Risk" OR riskNotes.length > 0
-\end{lstlisting}
-
-\textbf{DESPUÉS:}
-\begin{lstlisting}[language=JavaScript]
-journeyStatus === "Stuck"
-\end{lstlisting}
-
-\textbf{Beneficio:} Claridad en qué cuentas están realmente estancadas en su journey, no solo tienen notas de riesgo.
-
-\subsection{Métricas de Progreso Weighted by Hours}
-
-\textbf{Innovación:} En lugar de solo contar tareas completadas, ahora se pondera por horas:
-
-\[
-\text{Progress Real} = \frac{\sum \text{Horas de Tareas Completadas}}{\sum \text{Horas Totales Estimadas}}
-\]
-
-\textbf{Beneficio:} Refleja mejor el progreso real, ya que no todas las tareas tienen el mismo peso.
-
-\section{Testing y Validación}
-
-\subsection{Validaciones Implementadas}
-
-\subsubsection{1. Filtros de Onboarding}
-Verificado que todas las páginas que deben filtrar por onboarding lo hacen correctamente:
-\begin{lstlisting}[language=JavaScript]
-const onboardingAccounts = accounts.filter((acc) => acc.isOnboarding);
-\end{lstlisting}
-
-\subsubsection{2. Cálculos de Progreso}
-Validado que el progreso weighted funciona correctamente:
-\begin{itemize}
-    \item Cuenta 1: 120h/200h = 60\%
-    \item Cuenta 4: 180h/350h = 51.4\%
-    \item Promedio correcto calculado
-\end{itemize}
-
-\subsubsection{3. Varianza Week-to-Week}
-Verificado cálculo de varianza:
-\begin{itemize}
-    \item Cuenta 1: 60\% actual - 52\% anterior = +8\% (mejora)
-    \item Cuenta 10: 15\% actual - 18\% anterior = -3\% (retraso)
-\end{itemize}
-
-\subsection{Casos de Prueba}
-
-\begin{longtable}{|p{2cm}|p{5cm}|p{6cm}|}
-\hline
-\textbf{ID} & \textbf{Caso de Prueba} & \textbf{Resultado Esperado} \\
-\hline
-\endhead
-TC-01 & Filtrar Overview por "This Week" & Muestra solo cuentas completadas en últimos 7 días \\
-\hline
-TC-02 & Verificar At Risk count & Cuenta solo cuentas con journeyStatus === "Stuck" \\
-\hline
-TC-03 & Página TTV sin Enterprise QMS & No muestra KPI de Enterprise QMS \\
-\hline
-TC-04 & Churn Reasons tabla & Muestra última churnNote de cada cuenta churned \\
-\hline
-TC-05 & Stuck Reasons tabla & Muestra últimas 3 riskNotes concatenadas \\
-\hline
-TC-06 & Go Live variance colors & Verde para positivo, rojo para negativo \\
-\hline
-TC-07 & Sidebar Go Live link & Navega a /golive correctamente \\
-\hline
-TC-08 & Guru by Products & Muestra conteo correcto por guru y producto \\
-\hline
-\end{longtable}
-
-\section{Próximos Pasos Recomendados}
-
-\subsection{Integraciones Futuras}
-
-\subsubsection{1. API Backend}
-Conectar a base de datos real para:
-\begin{itemize}
-    \item Actualización en tiempo real de \texttt{tasksCompletedHours}
-    \item Cálculo automático de \texttt{previousWeekProgress}
-    \item Sincronización con sistema de gestión de proyectos
-\end{itemize}
-
-\subsubsection{2. Notificaciones Automáticas}
-\begin{itemize}
-    \item Alerta cuando \texttt{journeyStatus} cambia a "Stuck"
-    \item Notificación cuando variance es negativa por 2 semanas consecutivas
-    \item Recordatorio de Go Live 1 semana antes
-\end{itemize}
-
-\subsubsection{3. Exportación de Reportes}
-\begin{itemize}
-    \item Export a PDF de tablas
-    \item Export a CSV de datos
-    \item Reportes programados semanales/mensuales
-\end{itemize}
-
-\subsection{Mejoras de UX}
-
-\subsubsection{1. Tooltips Informativos}
-Agregar tooltips explicando:
-\begin{itemize}
-    \item Qué significa "Weighted by Hours"
-    \item Cómo se calcula Variance
-    \item Definición de cada Phase
-\end{itemize}
-
-\subsubsection{2. Drill-down Interactivo}
-\begin{itemize}
-    \item Click en barra de progreso → ver detalles de tareas
-    \item Click en cuenta → ver timeline completo
-    \item Click en guru → filtrar todas las vistas por ese guru
-\end{itemize}
-
-\subsubsection{3. Comparaciones Históricas}
-\begin{itemize}
-    \item Gráfico de progreso a lo largo del tiempo
-    \item Comparación de TTV actual vs histórico
-    \item Tendencia de churn rate
-\end{itemize}
-
-\section{Conclusiones}
-
-\subsection{Objetivos Cumplidos}
-
-\begin{enumerate}
-    \item ✅ Dashboard enfocado exclusivamente en cuentas Onboarding
-    \item ✅ Terminología actualizada a "Onboarding Guru"
-    \item ✅ Nueva definición de At Risk (Journey Status Stuck)
-    \item ✅ Productos reducidos a Fresh QMS y Migrated QMS
-    \item ✅ Nueva página Go Live con métricas de progreso weighted
-    \item ✅ Varianza week-to-week implementada
-    \item ✅ Filtros por milestone date y phase
-    \item ✅ Churn notes y risk notes detalladas
-    \item ✅ Implementation type tracking
-    \item ✅ Guru by products analysis
-\end{enumerate}
-
-\subsection{Valor Agregado}
-
-Los cambios implementados proporcionan:
-
-\begin{itemize}
-    \item \textbf{Claridad:} Separación clara entre cuentas en onboarding y post-onboarding
-    \item \textbf{Precisión:} Métricas de progreso weighted reflejan realidad mejor que conteo simple
-    \item \textbf{Accionabilidad:} Journey Status "Stuck" identifica exactamente qué cuentas necesitan intervención
-    \item \textbf{Visibilidad:} Nueva página Go Live da transparencia completa sobre implementaciones
-    \item \textbf{Accountability:} Varianza week-to-week permite identificar rápidamente proyectos que se están retrasando
-\end{itemize}
-
-\subsection{Métricas de Éxito}
-
-Con datos reales, estos cambios permitirían:
-
-\begin{itemize}
-    \item 20-30\% reducción en tiempo de identificación de cuentas en riesgo
-    \item 15-25\% mejora en predicción de fechas de Go Live
-    \item 30-40\% aumento en precisión de reporting a stakeholders
-    \item 10-15\% reducción en reuniones de status (datos disponibles en dashboard)
+\section*{Key Improvements}
+
+\begin{itemize}[leftmargin=*]
+    \item Clear separation between onboarding and post-onboarding accounts
+    \item More accurate progress tracking using hours instead of task count
+    \item Journey Status "Stuck" precisely identifies accounts needing intervention
+    \item Week-to-week variance quickly shows which projects are falling behind
+    \item Complete visibility into implementation progress and go live dates
 \end{itemize}
 
 \vspace{1cm}
 
-\noindent\textbf{Versión del Documento:} 1.0 \\
-\textbf{Fecha de Implementación:} \today \\
-\textbf{Estado:} Completado \\
-\textbf{Aprobado por:} Cliente
+\noindent\textbf{Version:} 1.0 \\
+\textbf{Status:} Completed
 
 \end{document}

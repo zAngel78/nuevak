@@ -4,6 +4,7 @@ import { accounts } from "@/lib/mockData";
 import KpiCard from "@/components/KpiCard";
 import ChartSection from "@/components/ChartSection";
 import DataTable from "@/components/DataTable";
+import RiskBadge from "@/components/RiskBadge";
 import {
   BarChart,
   Bar,
@@ -147,6 +148,27 @@ export default function Overview() {
           trend="down"
         />
       </div>
+
+      {/* Alert Banner if there are critical accounts */}
+      {atRiskAccounts.length > 0 && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🚨</span>
+            <div>
+              <h3 className="font-semibold text-red-900">
+                {atRiskAccounts.length} Account{atRiskAccounts.length > 1 ? 's' : ''} Require Immediate Attention
+              </h3>
+              <p className="text-sm text-red-700">Journey status is stuck. Review alerts page for details.</p>
+            </div>
+          </div>
+          <a
+            href="/alerts"
+            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm font-medium"
+          >
+            View Alerts
+          </a>
+        </div>
+      )}
 
       {/* Complete Onboarding List */}
       <div className="mb-8">
